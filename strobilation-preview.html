@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>STROBILATION — Modular Procedural Entity v2.0</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#030305;--neon-cyan:#00ffee;--neon-magenta:#ff00aa;--neon-white:#e8f0ff;
+  --panel-bg:rgba(3,3,8,0.92);--border:rgba(0,255,238,0.25);
+  --text:#a0b8c0;--text-bright:#e0f0f5;
+  --font-mono:'Share Tech Mono',monospace;--font-display:'Bebas Neue',sans-serif;
+}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg)}
+#cc{position:fixed;inset:0}
+canvas{display:block}
+#ui-panel{
+  position:fixed;top:24px;right:24px;width:236px;
+  background:var(--panel-bg);border:1px solid var(--border);
+  backdrop-filter:blur(12px);z-index:100;font-family:var(--font-mono);
+}
+#ui-panel::before,#ui-panel::after{
+  content:'';position:absolute;width:6px;height:6px;
+  border-color:var(--neon-cyan);border-style:solid;
+}
+#ui-panel::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
+#ui-panel::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.ph{padding:10px 14px 8px;border-bottom:1px solid var(--border);background:rgba(0,255,238,0.04)}
+.pt{font-family:var(--font-display);font-size:18px;letter-spacing:.12em;color:var(--neon-cyan);line-height:1}
+.ps{font-family:var(--font-mono);font-size:9px;color:var(--text);letter-spacing:.08em;margin-top:3px;text-transform:uppercase}
+.pb{padding:16px 14px;display:flex;flex-direction:column;gap:18px}
+.cg{display:flex;flex-direction:column;gap:6px}
+.cl{display:flex;justify-content:space-between;align-items:baseline}
+.cn{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--text)}
+.cv{font-size:11px;color:var(--neon-cyan);min-width:32px;text-align:right}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:2px;
+  background:rgba(0,255,238,.15);outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-runnable-track{
+  background:linear-gradient(to right,rgba(0,255,238,.6) var(--pct,50%),rgba(0,255,238,.1) var(--pct,50%));height:2px;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:12px;height:12px;background:var(--neon-cyan);cursor:pointer;
+  box-shadow:0 0 8px var(--neon-cyan),0 0 20px rgba(0,255,238,.4);
+}
+#sb{
+  position:fixed;bottom:20px;left:24px;font-family:var(--font-mono);
+  font-size:10px;color:rgba(0,255,238,.35);letter-spacing:.1em;
+  text-transform:uppercase;line-height:1.8;pointer-events:none;
+}
+.sl{display:flex;gap:8px}
+.slb{color:rgba(0,255,238,.25)}.slv{color:rgba(0,255,238,.55)}
+#ch{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:20px;height:20px;pointer-events:none;opacity:.3;
+}
+#ch::before,#ch::after{content:'';position:absolute;background:var(--neon-cyan)}
+#ch::before{width:1px;height:100%;left:50%;top:0;transform:translateX(-50%)}
+#ch::after{height:1px;width:100%;top:50%;left:0;transform:translateY(-50%)}
+#ts{position:fixed;top:24px;left:24px;pointer-events:none}
+.sm{font-family:var(--font-display);font-size:38px;line-height:.9;color:transparent;-webkit-text-stroke:1px rgba(0,255,238,.18);letter-spacing:.05em}
+.sv{font-family:var(--font-mono);font-size:9px;color:rgba(0,255,238,.2);letter-spacing:.2em;margin-top:4px}
+</style>
+</head>
+<body>
+<div id="cc"></div>
+<div id="ch"></div>
+<div id="ts">
+  <div class="sm">STROBILATION</div>
+  <div class="sv">ENTITY v2.0 / THREE.JS r128</div>
+</div>
+<div id="ui-panel">
+  <div class="ph">
+    <div class="pt">PARAMETERS</div>
+    <div class="ps">Procedural Control Interface</div>
+  </div>
+  <div class="pb">
+    <div class="cg">
+      <div class="cl"><span class="cn">Head Size</span><span class="cv" id="hv">1.00</span></div>
+      <input type="range" id="hs" min="0.4" max="2.2" step="0.01" value="1.0"/>
+    </div>
+    <div class="cg">
+      <div class="cl"><span class="cn">Movement Speed</span><span class="cv" id="sv">1.00</span></div>
+      <input type="range" id="ms" min="0.1" max="4.0" step="0.01" value="1.0"/>
+    </div>
+  </div>
+</div>
+<div id="sb">
+  <div class="sl"><span class="slb">FPS</span><span class="slv" id="sfps">--</span><span class="slb" style="margin-left:10px">TIME</span><span class="slv" id="st">0.0s</span></div>
+  <div class="sl"><span class="slb">POS</span><span class="slv">0.000 / 0.000 / 0.000</span></div>
+  <div class="sl"><span class="slb">RENDERER</span><span class="slv">WebGL · ShaderMaterial</span></div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.module.js';
+
+// ══════════════════════════════════════════════════════════
+//  SHADERS
+// ══════════════════════════════════════════════════════════
+const BellVS = /* glsl */`
+  uniform float uTime;
+  uniform float uSpeed;
+  uniform float uPulseAmt;
+  uniform float uHeadScale;
+  varying vec3 vPosition;
+  varying float vDisplace;
+  varying float vPulse;
+
+  float hash(float n){return fract(sin(n)*43758.5453123);}
+  float noise(float x){
+    float i=floor(x);float f=fract(x);
+    float u=f*f*(3.0-2.0*f);
+    return mix(hash(i),hash(i+1.0),u);
+  }
+
+  void main(){
+    vPosition = position;
+    float normY = clamp((position.y + uHeadScale)/(uHeadScale*1.5),0.0,1.0);
+    float pulse  = sin(uTime*uSpeed*2.2)*0.5+0.5;
+    float ripple = sin(uTime*uSpeed*4.1+normY*6.28)*0.12;
+    float edgeFlutter = pow(normY,2.0)*(pulse+ripple);
+    float radialDisplace = edgeFlutter*uPulseAmt*0.38;
+    float vertDisplace   = pulse*uPulseAmt*0.22*normY;
+    vec3 d = position;
+    d.xz *= (1.0-radialDisplace);
+    d.y  -= vertDisplace;
+    float warpAngle = atan(position.z,position.x);
+    float warp = noise(warpAngle*3.0+uTime*uSpeed*0.7)*0.018*uPulseAmt;
+    d.xz += normalize(position.xz+0.001)*warp;
+    vDisplace = edgeFlutter;
+    vPulse = pulse;
+    gl_Position = projectionMatrix*modelViewMatrix*vec4(d,1.0);
+  }
+`;
+
+const BellFS = /* glsl */`
+  uniform float uTime;
+  uniform float uSpeed;
+  uniform vec3 uColorCore;
+  uniform vec3 uColorRim;
+  varying vec3 vPosition;
+  varying float vDisplace;
+  varying float vPulse;
+
+  void main(){
+    float radial = length(vPosition.xz);
+    float heightBlend = clamp((vPosition.y+1.2)/2.4,0.0,1.0);
+    float coreGlow = pow(1.0-radial*0.6,2.0)*(0.6+vPulse*0.4);
+    float rimGlow  = pow(vDisplace,1.4)*1.8;
+    vec3 bodyColor = mix(uColorRim,uColorCore,heightBlend);
+    bodyColor += uColorCore*coreGlow*0.6;
+    bodyColor += uColorRim*rimGlow*0.5;
+    float angle = atan(vPosition.z,vPosition.x);
+    float veins = abs(sin(angle*8.0))*pow(radial*0.8,0.5)*0.3;
+    bodyColor += uColorCore*veins*(0.5+vPulse*0.5);
+    float alpha = 0.12+coreGlow*0.35+rimGlow*0.5+veins*0.25;
+    gl_FragColor = vec4(bodyColor,clamp(alpha,0.0,0.88));
+  }
+`;
+
+const EdgeVS = /* glsl */`
+  uniform float uTime;
+  uniform float uSpeed;
+  uniform float uPulseAmt;
+  uniform float uHeadScale;
+  void main(){
+    float normY = clamp((position.y+uHeadScale)/(uHeadScale*1.5),0.0,1.0);
+    float pulse  = sin(uTime*uSpeed*2.2)*0.5+0.5;
+    float ripple = sin(uTime*uSpeed*4.1+normY*6.28)*0.12;
+    float edgeFlutter = pow(normY,2.0)*(pulse+ripple);
+    vec3 d = position;
+    d.xz *= (1.0-edgeFlutter*uPulseAmt*0.38);
+    d.y  -= pulse*uPulseAmt*0.22*normY;
+    gl_Position = projectionMatrix*modelViewMatrix*vec4(d,1.0);
+  }
+`;
+
+const EdgeFS = /* glsl */`
+  uniform float uTime;
+  uniform float uSpeed;
+  uniform vec3 uEdgeColor;
+  void main(){
+    float f = 0.85+0.15*sin(uTime*uSpeed*6.0);
+    gl_FragColor = vec4(uEdgeColor*f,0.92);
+  }
+`;
+
+const TentVS = /* glsl */`
+  uniform float uTime;
+  uniform float uSpeed;
+  uniform float uWaveAmp;
+  uniform float uPhaseOffset;
+  uniform float uHeadScale;
+  varying float vT;
+  void main(){
+    float t = clamp(-position.y/(uHeadScale*4.2),0.0,1.0);
+    vT = t;
+    float w1 = sin(uTime*uSpeed*1.8+uPhaseOffset+t*5.0)*uWaveAmp*t*t;
+    float w2 = sin(uTime*uSpeed*3.1+uPhaseOffset*1.7+t*9.0)*uWaveAmp*0.35*t;
+    float w3 = cos(uTime*uSpeed*2.3+uPhaseOffset*0.8+t*4.0)*uWaveAmp*0.5*t;
+    vec3 d = position;
+    d.x += w1+w2;
+    d.z += w3;
+    gl_Position = projectionMatrix*modelViewMatrix*vec4(d,1.0);
+  }
+`;
+
+const TentFS = /* glsl */`
+  uniform vec3 uTentacleColor;
+  uniform float uTime;
+  uniform float uSpeed;
+  varying float vT;
+  void main(){
+    float alpha = (1.0-pow(vT,1.2))*0.85;
+    float pulse = 0.75+0.25*sin(uTime*uSpeed*2.8+vT*8.0);
+    vec3 col = uTentacleColor*pulse;
+    float dot = step(0.93,sin(vT*40.0+uTime*uSpeed*2.0));
+    col += uTentacleColor*dot*1.5;
+    gl_FragColor = vec4(col,alpha);
+  }
+`;
+
+// ══════════════════════════════════════════════════════════
+//  JELLYFISH CLASS
+// ══════════════════════════════════════════════════════════
+const C_CYAN    = new THREE.Color(0x00ffee);
+const C_MAGENTA = new THREE.Color(0xff00aa);
+const C_WHITE   = new THREE.Color(0xe8f0ff);
+
+class Jellyfish {
+  constructor(opts={}){
+    this.headScale     = opts.headScale     ?? 1.0;
+    this.tentacleCount = opts.tentacleCount ?? 18;
+    this.group = new THREE.Group();
+    this.group.position.set(0,0,0);
+    this._bellMats=[];this._tentacleMats=[];this._edgeMat=null;
+    this._build();
+  }
+
+  _u(extra){
+    return {
+      uTime:{value:0},uSpeed:{value:1},
+      uPulseAmt:{value:1.0},uHeadScale:{value:this.headScale},...extra
+    };
+  }
+
+  _buildBell(){
+    const S=this.headScale;
+    const pts=[];
+    for(let i=0;i<=28;i++){
+      const t=i/28;
+      const y=THREE.MathUtils.lerp(S*0.95,-S*0.05,t);
+      const r=Math.sin(t*Math.PI)*S*(1.0+Math.pow(t,3)*0.18);
+      pts.push(new THREE.Vector2(r,y));
+    }
+    const geo=new THREE.LatheGeometry(pts,64);
+    const mat=new THREE.ShaderMaterial({
+      uniforms:this._u({uColorCore:{value:C_CYAN},uColorRim:{value:C_MAGENTA}}),
+      vertexShader:BellVS,fragmentShader:BellFS,
+      transparent:true,side:THREE.DoubleSide,depthWrite:false
+    });
+    this._bellMats.push(mat);
+    this.group.add(new THREE.Mesh(geo,mat));
+
+    // Meridian lines
+    const em=new THREE.ShaderMaterial({
+      uniforms:this._u({uEdgeColor:{value:C_CYAN}}),
+      vertexShader:EdgeVS,fragmentShader:EdgeFS,
+      transparent:true,depthWrite:false
+    });
+    this._edgeMat=em;
+
+    for(let m=0;m<12;m++){
+      const a=(m/12)*Math.PI*2;
+      const v=[];
+      pts.forEach(p=>v.push(Math.cos(a)*p.x,p.y,Math.sin(a)*p.x));
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+      this.group.add(new THREE.Line(g,em));
+    }
+
+    // Latitude rings
+    [0.15,0.4,0.7,0.9].forEach(t=>{
+      const idx=Math.floor(t*(pts.length-1));
+      const pt=pts[idx];
+      const rg=new THREE.RingGeometry(pt.x-0.005,pt.x+0.005,64);
+      const rm=new THREE.Mesh(rg,em);
+      rm.rotation.x=-Math.PI/2;rm.position.y=pt.y;
+      this.group.add(rm);
+    });
+
+    // Apex dot
+    const ag=new THREE.SphereGeometry(S*0.07,16,16);
+    const am=new THREE.MeshBasicMaterial({color:C_WHITE,transparent:true,opacity:0.95});
+    const a=new THREE.Mesh(ag,am);
+    a.position.y=S*0.92;
+    this.group.add(a);
+
+    // Subumbrella inner dome (dimmer)
+    const ig=new THREE.SphereGeometry(S*0.82,32,32,0,Math.PI*2,0,Math.PI*0.5);
+    const im=new THREE.ShaderMaterial({
+      uniforms:this._u({uColorCore:{value:C_CYAN},uColorRim:{value:C_MAGENTA}}),
+      vertexShader:BellVS,fragmentShader:BellFS,
+      transparent:true,side:THREE.BackSide,depthWrite:false
+    });
+    this._bellMats.push(im);
+    const inner=new THREE.Mesh(ig,im);
+    inner.rotation.x=Math.PI;
+    inner.position.y=-S*0.02;
+    this.group.add(inner);
+  }
+
+  _buildTentacles(){
+    const S=this.headScale,N=this.tentacleCount,len=S*4.2;
+    for(let i=0;i<N;i++){
+      const angle=(i/N)*Math.PI*2;
+      const radius=S*(0.72+(i%3)*0.075);
+      const segs=60;const v=[];
+      for(let j=0;j<=segs;j++){const t=j/segs;v.push(Math.cos(angle)*radius,-t*len,Math.sin(angle)*radius);}
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+      const col=i%3===0?C_MAGENTA:i%3===1?C_CYAN:C_WHITE;
+      const m=new THREE.ShaderMaterial({
+        uniforms:{
+          uTime:{value:0},uSpeed:{value:1},
+          uWaveAmp:{value:S*0.55},uPhaseOffset:{value:angle},
+          uHeadScale:{value:S},uTentacleColor:{value:col}
+        },
+        vertexShader:TentVS,fragmentShader:TentFS,
+        transparent:true,depthWrite:false
+      });
+      this._tentacleMats.push(m);
+      this.group.add(new THREE.Line(g,m));
+    }
+
+    // Oral arms (4 thick central)
+    for(let i=0;i<4;i++){
+      const angle=(i/4)*Math.PI*2;const r=S*0.18;
+      const segs=30;const v=[];
+      for(let j=0;j<=segs;j++){const t=j/segs;v.push(Math.cos(angle)*r,-t*S*2.2,Math.sin(angle)*r);}
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+      const m=new THREE.ShaderMaterial({
+        uniforms:{
+          uTime:{value:0},uSpeed:{value:1},
+          uWaveAmp:{value:S*0.28},uPhaseOffset:{value:angle+Math.PI},
+          uHeadScale:{value:S},uTentacleColor:{value:C_WHITE}
+        },
+        vertexShader:TentVS,fragmentShader:TentFS,
+        transparent:true,depthWrite:false
+      });
+      this._tentacleMats.push(m);
+      this.group.add(new THREE.Line(g,m));
+    }
+  }
+
+  _build(){this._buildBell();this._buildTentacles();}
+
+  update(time,speed){
+    this._bellMats.forEach(m=>{m.uniforms.uTime.value=time;m.uniforms.uSpeed.value=speed;});
+    if(this._edgeMat){this._edgeMat.uniforms.uTime.value=time;this._edgeMat.uniforms.uSpeed.value=speed;}
+    this._tentacleMats.forEach(m=>{m.uniforms.uTime.value=time;m.uniforms.uSpeed.value=speed;});
+    // Position is always static
+    this.group.position.set(0,0,0);
+  }
+
+  setHeadScale(s){
+    this.headScale=s;
+    while(this.group.children.length){
+      const c=this.group.children[0];
+      if(c.geometry)c.geometry.dispose();
+      if(c.material)c.material.dispose();
+      this.group.remove(c);
+    }
+    this._bellMats=[];this._tentacleMats=[];this._edgeMat=null;
+    this._build();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  MAIN — Scene orchestration
+// ══════════════════════════════════════════════════════════
+const state={headScale:1.0,movementSpeed:1.0};
+const container=document.getElementById('cc');
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0x030305,1);
+renderer.sortObjects=true;
+container.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x030305,0.055);
+
+const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,0.01,100);
+camera.position.set(0,0.4,5.5);
+camera.lookAt(0,0,0);
+
+// Lighting
+scene.add(new THREE.AmbientLight(0x060612,1));
+const rimL=new THREE.PointLight(0x00ffee,0.6,14);rimL.position.set(3,2,2);scene.add(rimL);
+const fillL=new THREE.PointLight(0xff00aa,0.3,10);fillL.position.set(-2,-1,3);scene.add(fillL);
+
+// Grid
+const grid=new THREE.GridHelper(24,28,0x00ffee,0x080f0f);
+grid.position.y=-3.2;grid.material.opacity=0.15;grid.material.transparent=true;
+scene.add(grid);
+
+// Jellyfish
+const jelly=new Jellyfish({headScale:1.0,tentacleCount:18});
+scene.add(jelly.group);
+
+// Mouse parallax
+let mx=0,my=0;
+document.addEventListener('mousemove',e=>{
+  mx=(e.clientX/innerWidth-0.5)*2;
+  my=(e.clientY/innerHeight-0.5)*2;
+});
+
+window.addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// UI
+function trackFill(el){
+  const p=((parseFloat(el.value)-parseFloat(el.min))/(parseFloat(el.max)-parseFloat(el.min)))*100;
+  el.style.setProperty('--pct',p+'%');
+}
+const hsEl=document.getElementById('hs');
+const msEl=document.getElementById('ms');
+const hvEl=document.getElementById('hv');
+const svEl=document.getElementById('sv');
+const fpsEl=document.getElementById('sfps');
+const tEl=document.getElementById('st');
+
+hsEl.addEventListener('input',()=>{
+  const v=parseFloat(hsEl.value);state.headScale=v;
+  hvEl.textContent=v.toFixed(2);trackFill(hsEl);
+  jelly.setHeadScale(v);
+});
+msEl.addEventListener('input',()=>{
+  const v=parseFloat(msEl.value);state.movementSpeed=v;
+  svEl.textContent=v.toFixed(2);trackFill(msEl);
+});
+trackFill(hsEl);trackFill(msEl);
+
+// Render loop
+const clock=new THREE.Clock();
+let lastT=0,fc=0,fps=0;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const t=clock.getElapsedTime();
+  fc++;
+  if(t-lastT>=1.0){fps=fc;fc=0;lastT=t;}
+
+  jelly.update(t,state.movementSpeed);
+
+  camera.position.x+=(mx*0.5-camera.position.x)*0.04;
+  camera.position.y+=(-my*0.25+0.4-camera.position.y)*0.04;
+  camera.lookAt(0,0,0);
+
+  const pulse=Math.sin(t*state.movementSpeed*2.2)*0.5+0.5;
+  rimL.intensity=0.4+pulse*0.4;
+  fillL.intensity=0.12+(1-pulse)*0.3;
+
+  if(fpsEl)fpsEl.textContent=fps;
+  if(tEl)tEl.textContent=t.toFixed(1)+'s';
+
+  renderer.render(scene,camera);
+}
+animate();
+</script>
+</body>
+</html>

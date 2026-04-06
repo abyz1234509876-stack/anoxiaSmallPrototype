@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>STROBILATION — Modular Procedural Entity v2.0</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ── 3D Canvas ── -->
+  <div id="canvas-container"></div>
+
+  <!-- ── Crosshair ── -->
+  <div id="crosshair"></div>
+
+  <!-- ── Title Stamp ── -->
+  <div id="title-stamp">
+    <div class="stamp-main">STROBILATION</div>
+    <div class="stamp-ver">ENTITY v2.0 / THREE.JS</div>
+  </div>
+
+  <!-- ── Control Panel ── -->
+  <div id="ui-panel">
+    <div class="panel-header">
+      <div class="panel-title">PARAMETERS</div>
+      <div class="panel-sub">Procedural Control Interface</div>
+    </div>
+    <div class="panel-body">
+
+      <!-- Head Size -->
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">Head Size</span>
+          <span class="control-value" id="head-val">1.00</span>
+        </div>
+        <input
+          type="range"
+          id="head-size"
+          min="0.4"
+          max="2.2"
+          step="0.01"
+          value="1.0"
+        />
+      </div>
+
+      <!-- Movement Speed -->
+      <div class="control-group">
+        <div class="control-label">
+          <span class="control-name">Movement Speed</span>
+          <span class="control-value" id="speed-val">1.00</span>
+        </div>
+        <input
+          type="range"
+          id="move-speed"
+          min="0.1"
+          max="4.0"
+          step="0.01"
+          value="1.0"
+        />
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Status Bar ── -->
+  <div id="status-bar">
+    <div class="status-line">
+      <span class="status-label">FPS</span>
+      <span class="status-val" id="s-fps">--</span>
+      <span class="status-label" style="margin-left:12px">TIME</span>
+      <span class="status-val" id="s-time">0.0s</span>
+    </div>
+    <div class="status-line">
+      <span class="status-label">POS</span>
+      <span class="status-val">0.000 / 0.000 / 0.000</span>
+    </div>
+    <div class="status-line">
+      <span class="status-label">RENDERER</span>
+      <span class="status-val">THREE.JS r128 / WebGL2</span>
+    </div>
+  </div>
+
+  <!-- ── Module Imports ── -->
+  <script type="module" src="main.js"></script>
+
+</body>
+</html>
